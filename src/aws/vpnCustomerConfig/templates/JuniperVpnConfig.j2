@@ -1,0 +1,91 @@
+{% for tunnel in ipsec_tunnels %}
+security   {
+    ike {
+        proposal ike-prop-{{ vpn_connection_id }}-{{ tunnel.id }} {
+            authentication-method pre-shared-keys;
+            dh-group {{ tunnel.IKE.perfect_forward_secrecy }};
+            authentication-algorithm {{ tunnel.IKE.authentication_protocol }};
+            encryption-algorithm {{ tunnel.IKE.encryption_protocol }};
+            lifetime-seconds {{ tunnel.IKE.lifetime }};
+        }
+        policy ike-pol-{{ vpn_connection_id }}-{{ tunnel.id }} {
+            mode {{ tunnel.IKE.mode }};
+            proposals ike-prop-{{ vpn_connection_id }}-{{ tunnel.id }};
+            pre-shared-key ascii-text {{ tunnel.IKE.pre_shared_key }}; ## SECRET-DATA
+        }
+        gateway gw-{{ vpn_connection_id }}-{{ tunnel.id }} {
+            ike-policy ike-pol-{{ vpn_connection_id }}-{{ tunnel.id }};
+	    address {{ tunnel.Tunnel.vpn_gateway_outside_address }};
+            dead-peer-detection;
+            external-interface {{ routable_interface }};
+        }
+    }
+    ipsec {
+        proposal ipsec-prop-{{ vpn_connection_id }}-{{ tunnel.id }} {
+            protocol {{ tunnel.IPsec.protocol }};
+            authentication-algorithm {{ tunnel.IPsec.authentication_protocol }};
+            encryption-algorithm {{ tunnel.IPsec.encryption_protocol }};
+            lifetime-seconds 3600;
+        }
+        policy ipsec-pol-{{ vpn_connection_id }}-{{ tunnel.id }} {
+            perfect-forward-secrecy {
+                keys {{ tunnel.IPsec.perfect_forward_secrecy }};
+            }
+            proposals ipsec-prop-{{ vpn_connection_id }}-{{ tunnel.id }};
+        }
+        vpn {{ vpn_connection_id }}-{{ tunnel.id }} {
+            bind-interface {{ tunnel.Tunnel.bind_interface }};
+            df-bit clear;
+            vpn-monitor {
+                source-interface {{ tunnel.Tunnel.bind_interface }};
+                destination-ip {{ tunnel.Tunnel.vpn_gateway_inside_address }};
+            }
+            ike {
+                gateway gw-{{ vpn_connection_id }}-{{ tunnel.id }};
+                ipsec-policy ipsec-pol-{{ vpn_connection_id }}-{{ tunnel.id }};
+            }
+        }
+    }
+    flow {
+        tcp-mss {
+            ipsec-vpn {
+                mss {{ tunnel.Tunnel.tcp_mss_adjustment }};
+            }
+        }
+    }
+    zones {
+        security-zone trust {
+            interfaces {
+                {{ tunnel.Tunnel.bind_interface }};
+            }
+            host-inbound-traffic {
+                protocols {
+                    bgp;
+                }
+            }
+        }
+        security-zone untrust {
+            host-inbound-traffic {
+                system-services {
+                    ike;
+                }
+            }
+        }
+    }
+}
+interfaces {
+    st0 {
+        unit {{ tunnel.id }} {
+            family inet {
+                mtu 1436;
+                address {{ tunnel.Tunnel.customer_gateway_inside_address }}/30;
+            }
+        }
+    }
+}
+routing-options {
+    static {
+        route {{ aws_private_cidr }} next-hop {{ tunnel.Tunnel.bind_interface }};
+    }
+}
+{% endfor %}
