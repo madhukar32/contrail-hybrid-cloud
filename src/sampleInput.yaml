@@ -1,0 +1,80 @@
+####################################################################################
+#                                                                                  #
+#                           Public Cloud Details                                  #
+#                                                                                  #
+####################################################################################
+publicCloud:
+  #Vpc Details name and awsCidrBlock
+  vpc:
+    name: 'HybridVpc'
+    cidrBlock: '192.168.20.0/24'
+  #Private cloud cidr block, to which the awsCidrBlock should be able o communicate
+  privateCloudCidr: '192.168.8.0/24'
+  #File path of the jinja2 template located
+  #usually its in the path aws/vpnCustomerConfig/templates/JuniperVpnConfig.j2
+  junosJ2TemplatePath: './aws/vpnCustomerConfig/templates/JuniperVpnConfig.j2'
+  #Path where the output junos configuratiom should b created
+  outputJunosFile: './aws/vpnCustomerConfig/templates/JunosVpn.conf'
+  #vSRX Interface on which the publicly routabl interface sits
+  publiclyRoutableIntf: 'ge-0/0/1'
+  #s3 Instance details
+  s3Instance:
+    #Existing keypair name available in your AWS setup
+    keyPairName: 'hybrid_cloud'
+    #Image id
+    imageId: 'ami-b04e92d0'
+    #Interface type or the flavor of the s3 instance
+    instanceType: 't2.micro'
+####################################################################################
+#                                                                                  #
+#                           Private Cloud Details                                  #
+#                                                                                  #
+####################################################################################
+privateCloud:
+  #Private Cloud credentails required for the contrail to authenticate
+  username: 'user1'
+  tenantName: 'tenant1'
+  password: 'password'
+  domain: 'default-domain'
+  apiHost: '1.1.1.1'
+  #Network which can be reached from internet
+  publiclyRoutableNetwork: 'public'
+  #List of networks and its details
+  networks:
+    - name: 'IPSec-Mgmt-VN'
+      cidr: '192.168.5.0/24'
+    - name: 'IPSec-Corpoate-VN'
+      cidr: '192.168.8.0/24'
+    - name: 'public'
+      cidr: '1.1.1.2/27'
+      allocationPool: '1.1.1.10-1.1.1.100'
+      routeTarget: '64512:14000'
+  services:
+    templates:
+    #Service Template details
+      - name: 'IpsecCorpTemp'
+        intfMapping:
+          management: 'IPSec-Mgmt-VN'
+          left: 'IPSec-Corpoate-VN'
+          right: 'public'
+        serviceMode: 'in-network'
+        serviceType: 'firewall'
+        orderedIntf: True
+    instances:
+    #Service Instnace details
+      - name: 'IpsecCorpInstance'
+        templateName: 'IpsecCorpTemp'
+  policies:
+  #Network Policy details
+    - name: 'IpsecPolicy'
+      serviceInstance: 'IpsecCorpInstance'
+      srcNetwork: 'IPSec-Corpoate-VN'
+      destNetwork: 'public'
+  nova:
+  #Nova Instance details
+    vsrx:
+      imageName: 'vsrx-d50-final'
+      flavorName: 'm1.medium'
+      instanceName: 'CorporateIpsecInstance'
+      username: 'vsrxuser'
+      password: 'password'
