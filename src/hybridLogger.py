@@ -23,7 +23,7 @@ class hybridLogger(object):
         if os.path.exists(filePath):
             pass
         else:
-            print "path given in LOG_FILE environment varibale doesnt exist, changed to default path"
+            #print "path given in LOG_FILE environment varibale doesnt exist, changed to default path"
             path = defaultPath
 
         if level == 'INFO':
