@@ -3,9 +3,14 @@ import os
 from novaclient.client import Client
 import time
 
-class novaBasic(object):
+from hybridLogger import hybridLogger
+
+class novaBasic(hybridLogger):
 
     def __init__(self, **kwargs):
+
+        logLevel = kwargs.get('logLevel', 'INFO')
+        self.log = super(novaBasic, self).log(level=logLevel, name=novaBasic.__name__)
         try:
             novaCredentials = get_nova_credentials()
             self.novaClient = Client(**novaCredentials)
@@ -24,13 +29,14 @@ class novaBasic(object):
         image = self.novaClient.images.find(name=image)
         
         instanceName = kwargs.get('instance_name')
+        
+        portIdList = kwargs.get('port_id_list')
 
         nics = []
-        for network in netList:
-            netid = {}
-            net = self.novaClient.networks.find(label=network)
-            netid['net-id'] = net.id
-            nics.append(netid)
+        for portId in portIdList:
+            port = {}
+            port['port-id'] = portId
+            nics.append(port)
 
         instance = self.novaClient.servers.create(name=instanceName, image=image,flavor=flavor, nics=nics)
 
@@ -38,5 +44,6 @@ class novaBasic(object):
 
         if instance not in self.novaClient.servers.list():
             raise Exception("Issue while creating server")
+        self.log.info("Successfully created instance: {0}".format(instanceName))
         return instance
 
