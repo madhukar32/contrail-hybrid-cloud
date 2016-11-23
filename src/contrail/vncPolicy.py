@@ -10,7 +10,9 @@ from exception import *
 class vncPolicy(hybridLogger):
 
     def __init__(self, vnc, **kwargs):
-        self.log = super(vncPolicy, self).log(name=vncPolicy.__name__)
+
+        logLevel = kwargs.get('logLevel', 'INFO')
+        self.log = super(vncPolicy, self).log(level=logLevel, name=vncPolicy.__name__)
 
         self.vnc = vnc
         _requiredArgs = ['domain', 'tenantName']

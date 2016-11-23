@@ -11,7 +11,8 @@ class vncService(hybridLogger):
 
     def __init__(self, vnc, **kwargs):
 
-        self.log = super(vncService, self).log(name=vncService.__name__)
+        logLevel = kwargs.get('logLevel', 'INFO')
+        self.log = super(vncService, self).log(level=logLevel, name=vncService.__name__)
         self.vnc = vnc
 
         _requiredArgs = ['serviceTempName', 'interfaceMapping', 'domain', 'tenantName']
@@ -60,28 +61,37 @@ class vncService(hybridLogger):
 
         return serviceTemplate
 
+    def _returnVmiId(self, vnName, networkDetails):
+
+        for network in networkDetails:
+            if network['name'] == vnName:
+                return network['portId']
+
+        return False
 
     def createServiceInstancev2(self, **kwargs):
 
-        _requiredArgs = ['serviceInstanceName']
-
-        serviceTempName = kwargs['serviceTempName']
-        stFqName = [self.domain, serviceTempName]
+        _requiredArgs = ['serviceInstanceName', 'serviceTempName', 'networkDetails']
 
         try:
+            serviceTempName = kwargs['serviceTempName']
             serviceInstanceName = kwargs.get('serviceInstanceName') 
+            networkDetails = kwargs['networkDetails']
         except KeyError:
             raise ArguementError(_requiredArgs, vncService.createServiceInstancev2.__name__)
+        
+        stFqName = [self.domain, serviceTempName]
 
         portTuple = []
 
         for intfType in self.interfaceMapping.keys():
             try:
                 vnName = self.interfaceMapping[intfType]
-                vnObj = readNetwork(self.vnc, domain=self.domain, 
-                        tenantName=self.tenantName,networkName=vnName)
-                vmiRef =  vnObj.get_virtual_machine_interface_back_refs()
-                vmiId = vmiRef[0].get('uuid')
+
+                vmiId = self._returnVmiId(vnName, networkDetails)
+                if not vmiId:
+                    raise AssertionError("Service template networks does not match with the nova instance networks, check your input file")
+
                 portTuple.append(intfType+ '=' + str(vmiId))
             except (ContrailError, ArguementError) as e:
                 self.log.error("Reading network failed with message: {0}".format(e))
