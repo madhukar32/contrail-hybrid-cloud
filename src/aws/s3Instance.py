@@ -12,7 +12,8 @@ class s3Instance(hybridLogger):
 
     def __init__(self, **kwargs):
 
-        self.log = super(s3Instance, self).log(name=s3Instance.__name__)
+        logLevel = kwargs.get('logLevel', 'INFO')
+        self.log = super(s3Instance, self).log(level=logLevel,name=s3Instance.__name__)
         try:
             self.ec2Client = connectAws.getEc2Client()
             self.ec2 = connectAws.getEc2Resource()

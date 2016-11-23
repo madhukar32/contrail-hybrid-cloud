@@ -16,6 +16,9 @@ class createJuniperConfig(hybridLogger):
 
     def __init__(self, **kwargs):
 
+        logLevel = kwargs.get('logLevel', 'INFO')
+        self.log = super(createJuniperConfig, self).log(level=logLevel, name=createJuniperConfig.__name__)
+
         _requiredArgs = ['awsVpnConfigXml', 'awsCidrBlock', 'custRoutableIntf']
         try:
             self.awsVpnConfigXml = kwargs['awsVpnConfigXml']
@@ -23,8 +26,6 @@ class createJuniperConfig(hybridLogger):
             self.custRoutableIntf = kwargs['custRoutableIntf']
         except KeyError as e:
             raise ArguementError(_requiredArgs, createJuniperConfig.__name__)
-
-        self.log = super(createJuniperConfig, self).log(name=createJuniperConfig.__name__)
 
         self.juniperConfig = {}
         self.juniperConfig['aws_private_cidr'] = self.awsCidrBlock

@@ -14,7 +14,8 @@ class vpc(hybridLogger):
     
     def __init__(self, **kwargs):
 
-        self.log = super(vpc, self).log(name=vpc.__name__)
+        logLevel = kwargs.get('logLevel', 'INFO')
+        self.log = super(vpc, self).log(level=logLevel, name=vpc.__name__)
         try:
             self.ec2Client = connectAws.getEc2Client()
             self.ec2 = connectAws.getEc2Resource()
@@ -88,15 +89,6 @@ class vpc(hybridLogger):
         if len(securityGroupIdList) > 1:
             self.log.warn("Multiple securityGroupId with the same Tag, condifering the first Id")
         
-        #Assign tag to those resources
-        #try:
-        #    awsTag.assignTag(self.ec2, name='Name', value=self.vpcName, resourceIdList=[vpcId,
-        #                 routeTableId, networkAclId, securityGroupId ])
-        #except (ArguementError, AwsError) as e:
-        #    self.log.error(e, exc_info=True)
-        #    return False
-
-        #Debug Log
 
         self.log.debug("RouteTable \t routeTableId: {}".format(routeTableId))
         self.log.debug("NetworkACL \t networkAclId: {}".format(networkAclId))
@@ -124,13 +116,6 @@ class vpc(hybridLogger):
             raise AwsError(boto3Api="create_subnet", error=e)
         
         subnetId = subnetResp.id
-        #self._assignTag(name='Name', value=self.vpcName, ResourceId=[self.subnetId])
-
-        # try:
-        #     awsTag.assignTag(self.ec2, name='Name', value=self.vpcName, resourceIdList=[subnetId])
-        # except (ArguementError, AwsError) as e:
-        #     self.log.error(e,exc_info=True)
-        #     return False
 
         self.log.info("Subnet Created with Id: {0}".format(subnetId))
         retValue = {'subnetId': subnetId}

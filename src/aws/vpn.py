@@ -2,7 +2,6 @@ from aws.vpc import vpc
 from aws.util import (awsTag, awsResourceId)
 from exception import *
 
-import pdb
 import sys
 import time
 
