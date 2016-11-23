@@ -6,11 +6,13 @@ from hybridLogger import hybridLogger
 
 from exception import *
 
+import uuid
+
 class vncNetwork(hybridLogger):
 
-    def __init__(self, vnc, domain, tenantName):
+    def __init__(self, vnc, domain, tenantName ,logLevel='INFO'):
 
-        self.log = super(vncNetwork, self).log(name=vncNetwork.__name__)
+        self.log = super(vncNetwork, self).log(level=logLevel, name=vncNetwork.__name__)
         self.vnc = vnc
         self.tenantName = tenantName
         self.domain = domain
@@ -58,7 +60,17 @@ class vncNetwork(hybridLogger):
             allocTypeList = []
 
         try:
-            networkObj = vnc_api.VirtualNetwork(name=networkName, parent_obj=self.tenantObj)
+            fipPoolName = kwargs['fipPoolName']
+        except KeyError, AttributeError:
+            fipPoolName = False
+
+        if fipPoolName:
+            routerExternal = True
+        else:
+            routerExternal = False
+
+        try:
+            networkObj = vnc_api.VirtualNetwork(name=networkName, parent_obj=self.tenantObj, router_external=routerExternal)
             
             networkExists = self._checkIfNetworkExists(networkObj, self.tenantObj)
 
@@ -88,7 +100,23 @@ class vncNetwork(hybridLogger):
                 self.log.error("Function: createNetwork Message: Error While adding route target to the network: {0}".format(e))
                 return False
 
-        return networkObj
+        if fipPoolName:
+            fipObj = self.returnFipObj(fipPoolName, networkObj)
+        else:
+            fipObj = None
+
+        return networkObj, fipObj
+
+    def returnFipObj(self, fipPoolName, networkObj):
+
+        fipPoolId = str(uuid.uuid4())
+        fipPool = vnc_api.FloatingIpPool(name = fipPoolName, parent_obj = networkObj)
+        fipPool.uuid = fipPoolId
+        self.vnc.floating_ip_pool_create(fipPool)
+        self.tenantObj.add_floating_ip_pool(fipPool)
+        self.vnc.project_update(self.tenantObj)
+        return fipPool
+
 
     def _checkIfNetworkExists(self, networkObj, tenantObj):
 
