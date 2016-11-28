@@ -1,6 +1,7 @@
 from contrail.vncNetwork import vncNetwork
 from contrail.vncService import vncService
 from contrail.vncPolicy import vncPolicy
+from contrail.vncPort import vncPort
 from contrail.util import vncObj
 
 from junos_pyez.loadConfig import loadConfig
@@ -23,11 +24,13 @@ from aws.vpnCustomerConfig.createJuniperConfig import createJuniperConfig
 from aws.util import awsTag
 
 
-class privateCloud(hybridLogger):
+class privateCloud(hybridLogger): 
 
-    def __init__(self, inputDict):
-        self.log = super(privateCloud,self).log(name=privateCloud.__name__)
-        
+    def __init__(self, inputDict, logLevel='INFO'):
+
+        self.level = logLevel
+        self.log = super(privateCloud,self).log(level=logLevel, name=privateCloud.__name__)
+
         self.inputDict = inputDict
         
         self.tenantName = self.inputDict['tenantName']
@@ -43,8 +46,8 @@ class privateCloud(hybridLogger):
     def setup(self):
 
         # Creating network
-        self.networkList = []
-        vncN = vncNetwork(self.vncObj, self.domain, self.tenantName)
+        vncN = vncNetwork(self.vncObj, self.domain, self.tenantName, logLevel=self.level)
+
         for network in self.inputDict['networks']:
             
             if 'allocationPool' in network.keys():
@@ -57,17 +60,21 @@ class privateCloud(hybridLogger):
             else:
                 routeTarget = False
 
+            if 'fipPoolName' in network.keys():
+                fipPoolName = network['fipPoolName']
+            else:
+                fipPoolName = False
+
             networkName = network['name']
             networkCidr = network['cidr']
 
             netObj = vncN.createNetwork(cidr=networkCidr, name = networkName, 
-                    allocationPool= allocationPool,routeTarget = routeTarget)
+                    allocationPool= allocationPool,routeTarget = routeTarget, fipPoolName=fipPoolName)
 
             if not netObj:
                 return False
 
             network['obj'] = netObj
-            self.networkList.append(networkName)
 
         self.log.debug("Updated network list with object: {0}".format(self.inputDict['networks']))
 
@@ -92,8 +99,8 @@ class privateCloud(hybridLogger):
             else:
                 orderedIntf = True
 
-            vncSvc = vncService(self.vncObj,interfaceMapping = intfMap,
-                    domain = self.domain, tenantName=self.tenantName)
+            vncSvc = vncService(self.vncObj,interfaceMapping = intfMap,domain = self.domain, tenantName=self.tenantName, logLevel=self.level)
+
             vncSvcTmpObj = vncSvc.createServiceTemplateV2(serviceTempName=svcTempName)
 
             if not vncSvcTmpObj:
@@ -102,30 +109,39 @@ class privateCloud(hybridLogger):
             template['obj'] = vncSvcTmpObj
 
         #Create vSRX Instance
-        novaClient = novaBasic()
-        
+        novaClient = novaBasic(logLevel=self.level)
+
+        vncVmi = vncPort(self.vncObj, domain = self.domain, tenantName=self.tenantName, logLevel=self.level)
+
         for novaInstance in self.inputDict['nova'].keys():
-            if novaInstance == 'vsrx':
-                vsrxImage = self.inputDict['nova'][novaInstance]['imageName']
-                vsrxFlavor = self.inputDict['nova'][novaInstance]['flavorName']
-                vsrxInstanceName = self.inputDict['nova'][novaInstance]['instanceName']
+            networkList = self.inputDict['nova'][novaInstance]['networks']
 
-                novaInstanceObj = novaClient.createInstance(network_name_list=self.networkList, image_name=vsrxImage,flavor_name=vsrxFlavor, instance_name=vsrxInstanceName)
-                self.inputDict['nova'][novaInstance]['obj'] = novaInstanceObj
+            #Create virtual machine interfaces
 
-                instanceNetwork = novaInstanceObj.networks
+            updatedNetwork = vncVmi.createPorts(portList=networkList)
+            self.inputDict['nova'][novaInstance]['networks'] = updatedNetwork
 
-                for network in self.inputDict['networks']:
-                    if network['name'] in instanceNetwork.keys():
-                        if len(instanceNetwork[network['name']]) >= 1:
-                            network['ip'] = instanceNetwork[network['name']][0]
+            portIdList = [networks['portId'] for networks in updatedNetwork]
+
+            instanceImage = self.inputDict['nova'][novaInstance]['imageName']
+            instanceFlavor = self.inputDict['nova'][novaInstance]['flavorName']
+            instanceName = self.inputDict['nova'][novaInstance]['instanceName']
+
+            novaInstanceObj = novaClient.createInstance(port_id_list=portIdList, image_name=instanceImage,flavor_name=instanceFlavor, instance_name=instanceName)
+            self.inputDict['nova'][novaInstance]['obj'] = novaInstanceObj
         
         #Create Service Instance v2
         for svcInstance in self.inputDict['services']['instances']:
             svcInstanceName = svcInstance['name']
             svcTempName = svcInstance['templateName']
+
+            if svcInstance['instanceKey'] in self.inputDict['nova'].keys():
+                networkDetails = self.inputDict['nova'][svcInstance['instanceKey']]['networks']
+            else:
+                raise AssertionError("instanceKey does not match with your nova instance key, please check your input file")
+
+            vncSvcInstObj = vncSvc.createServiceInstancev2(serviceInstanceName=svcInstanceName, serviceTempName=svcTempName, networkDetails=networkDetails)
             
-            vncSvcInstObj = vncSvc.createServiceInstancev2(serviceInstanceName=svcInstanceName, serviceTempName=svcTempName)
             if not vncSvcInstObj:
                 continue
             else:
@@ -133,7 +149,8 @@ class privateCloud(hybridLogger):
 
         #Create Policy
 
-        vncP = vncPolicy(self.vncObj, domain = self.domain, tenantName='admin')
+        vncP = vncPolicy(self.vncObj, domain = self.domain, tenantName=self.tenantName, logLevel=self.level)
+
         for policy in self.inputDict['policies']:
             policyName = policy['name']
             srcNetwork = policy['srcNetwork']
@@ -256,6 +273,29 @@ if __name__ == "__main__":
         log.error("yaml file should be passed as an arguement. Ex: python hybridCloud.py inputHybird.yaml", exc_info=True)
         sys.exit(1)
 
+    try:
+        level = sys.argv[2]
+        inputLogList = level.split('=')
+        validKey = ['level', 'loglevel', 'log']
+        validValue = ['INFO', 'ERROR', 'WARN', 'DEBUG', 'CRITICAL']
+        logKey = inputLogList[0]
+        logKey = logKey.lower()
+        logValue = inputLogList[1]
+        logValue = logValue.upper()
+
+        if logKey not in validKey:
+            raise KeyError()
+
+        if logValue not in validValue:
+            raise ValueError()
+        logLevel = logValue
+
+    except IndexError:
+        logLevel = 'INFO'
+    except KeyError, ValueError:
+        print "Log value is not in correct format, setting the log level to INFO by default"
+        logLevel = 'INFO'
+
     if os.path.exists(inputYamlFile):
         fh = open(inputYamlFile)
     else:
@@ -272,7 +312,7 @@ if __name__ == "__main__":
     privateCloudDict = hybridCloudDict['privateCloud']
 
     try:
-        private = privateCloud(privateCloudDict)
+        private = privateCloud(privateCloudDict, logLevel=logLevel)
         updatedPrivateDict = private.setup()
     except Exception as e:
         log.error(e, exc_info=True)
