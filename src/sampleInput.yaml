@@ -49,6 +49,7 @@ privateCloud:
       cidr: '1.1.1.2/27'
       allocationPool: '1.1.1.10-1.1.1.100'
       routeTarget: '64512:14000'
+      fipPoolName: 'FIP'
   services:
     templates:
     #Service Template details
@@ -64,6 +65,7 @@ privateCloud:
     #Service Instnace details
       - name: 'IpsecCorpInstance'
         templateName: 'IpsecCorpTemp'
+        instanceKey: 'vsrx'
   policies:
   #Network Policy details
     - name: 'IpsecPolicy'
@@ -73,8 +75,23 @@ privateCloud:
   nova:
   #Nova Instance details
     vsrx:
+      networks:
+        - name: 'IPSec-Corpoate-VN'
+        - name: 'IPSec-Mgmt-VN'
+          fip: 'True'
+          fipPoolNetwork: 'public'
+        - name: 'public'
       imageName: 'vsrx-d50-final'
       flavorName: 'm1.medium'
       instanceName: 'CorporateIpsecInstance'
       username: 'vsrxuser'
+      password: 'password'
+    ubuntu:
+      networks:
+        - name: 'IPSec-Corpoate-VN'
+        - name: 'public'
+      imageName: 'ubuntu-14.04'
+      flavorName: 'm1.small'
+      instanceName: 'develop'
+      username: 'ubuntu'
       password: 'password'
