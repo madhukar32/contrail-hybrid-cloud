@@ -5,12 +5,12 @@ import time
 
 from hybridLogger import hybridLogger
 
-class novaBasic(hybridLogger):
+class nova(hybridLogger):
 
     def __init__(self, **kwargs):
 
         logLevel = kwargs.get('logLevel', 'INFO')
-        self.log = super(novaBasic, self).log(level=logLevel, name=novaBasic.__name__)
+        self.log = super(nova, self).log(level=logLevel, name=nova.__name__)
         try:
             novaCredentials = get_nova_credentials()
             self.novaClient = Client(**novaCredentials)

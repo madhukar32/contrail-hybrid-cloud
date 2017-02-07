@@ -45,20 +45,24 @@ class vncNetwork(hybridLogger):
         except KeyError, AttributeError:
             routeTarget = False
 
-        if allocationPool:
-            try:
-                allocationPoolStart, allocationPoolStop = allocationPool.split('-') 
-                allocType = vnc_api.AllocationPoolType()
-                allocType.set_start(allocationPoolStart)
-                allocType.set_end(allocationPoolStop)
-                allocTypeList = [allocType]
-            except Exception as e:
-                self.log.error("Function: createNetwork Message: allocationPool error : {0}".format(e))
-                return False
-                
-        else:
-            allocTypeList = []
+        allocTypeList = []
 
+        if allocationPool:
+            if type(allocationPool) == list:
+                allocationPoolList = allocationPool
+            else:
+                allocationPoolList = [allocationPool]
+            for allocationPool in allocationPoolList: 
+                try:
+                    allocationPoolStart, allocationPoolStop = allocationPool.split('-') 
+                    allocType = vnc_api.AllocationPoolType()
+                    allocType.set_start(allocationPoolStart)
+                    allocType.set_end(allocationPoolStop)
+                    allocTypeList.append(allocType)
+                except Exception as e:
+                    self.log.error("Function: createNetwork Message: allocationPool error : {0}".format(e))
+                    return False
+                
         try:
             fipPoolName = kwargs['fipPoolName']
         except KeyError, AttributeError:

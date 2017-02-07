@@ -9,7 +9,8 @@ from jnpr.junos.exception import ConnectTimeoutError
 
 from hybridLogger import hybridLogger
 
-from nova.novaBasic import novaBasic
+from openstack.nova import nova
+from openstack.glance import glance
 from exception import *
 
 import yaml
@@ -26,10 +27,10 @@ from aws.util import awsTag
 
 class privateCloud(hybridLogger): 
 
-    def __init__(self, inputDict, logLevel='INFO'):
+    def __init__(self, inputDict, logLevel='INFO',  logFile=None):
 
         self.level = logLevel
-        self.log = super(privateCloud,self).log(level=logLevel, name=privateCloud.__name__)
+        self.log = super(privateCloud,self).log(level=logLevel, name=privateCloud.__name__, defaultPath=logFile)
 
         self.inputDict = inputDict
         
@@ -108,8 +109,18 @@ class privateCloud(hybridLogger):
 
             template['obj'] = vncSvcTmpObj
 
+        #Create Images
+        glanceClient = glance(logLevel=self.level)
+
+        for image in self.inputDict['glance']:
+            imageExists = glanceClient.verifyImage(image['imageName'])
+            if not imageExists:
+                glanceClient.createImage(**image)
+            else:
+                self.log.info("Skipping creation of glance image: {0}".format(image['imageName']))
+
         #Create vSRX Instance
-        novaClient = novaBasic(logLevel=self.level)
+        novaClient = nova(logLevel=self.level)
 
         vncVmi = vncPort(self.vncObj, domain = self.domain, tenantName=self.tenantName, logLevel=self.level)
 
@@ -308,11 +319,13 @@ if __name__ == "__main__":
         log.error(e, exc_info=True)
         sys.exit(1)
 
+    logFile = hybridCloudDict['logFile']
+
     publicCloudDict = hybridCloudDict['publicCloud']
     privateCloudDict = hybridCloudDict['privateCloud']
-
+    import pdb;pdb.set_trace()
     try:
-        private = privateCloud(privateCloudDict, logLevel=logLevel)
+        private = privateCloud(privateCloudDict, logLevel=logLevel, logFile=logFile)
         updatedPrivateDict = private.setup()
     except Exception as e:
         log.error(e, exc_info=True)
@@ -323,7 +336,7 @@ if __name__ == "__main__":
             custGwIp = network['ip']
 
     try:
-        public = awsCloud(publicCloudDict, custGwIp)
+        public = awsCloud(publicCloudDict, custGwIp, logLevel=logLevel, logFile=logFile)
         updatedPublicDict = public.setup()
     except Exception as e:
         log.error(e, exc_info=True)
