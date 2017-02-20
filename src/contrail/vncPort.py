@@ -3,7 +3,7 @@ from vnc_api.vnc_api import NoIdError
 
 from hybridLogger import hybridLogger
 
-from contrail.util import (readSvcTemplate, readNetwork, readTenant, readPolicy)
+from contrail.util import (readSvcTemplate, readNetwork, readTenant, readPolicy, readInstanceIp)
 
 from exception import *
 
@@ -58,6 +58,7 @@ class vncPort(hybridLogger):
             instanceIpObj = self.returnInstanceIpForVmi(vmi, networkObj)
 
             portDetails['instanceIpId'] = instanceIpObj.uuid
+            portDetails['instanceIp'] = self.getInstanceIp(instanceIpObj.uuid)
 
             self.log.debug("Created port and associated Ip with port_id: {0} instance_ip_id: {1}".format(vmi.uuid, instanceIpObj.uuid))
 
@@ -104,3 +105,8 @@ class vncPort(hybridLogger):
         fip.add_virtual_machine_interface(vmi)
         self.vnc.floating_ip_update(fip)
 
+    def getInstanceIp(self, iipId):
+
+	iipObject = readInstanceIp(self.vnc, iipId)
+
+        return str(iipObject.get_instance_ip_address())

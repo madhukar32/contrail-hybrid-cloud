@@ -62,3 +62,11 @@ def readSvcTemplate(vncObj, fqName):
         return vncObj.service_template_read(fq_name = fqName)
     except Exception as e:
         raise ContrailError(vncApi='vncObj.service_template_read', error=e)
+
+def readInstanceIp(vncObj, iipId):
+
+    try:
+        return vncObj.instance_ip_read(id = iipId)
+    except Exception as e:
+        raise ContrailError(vncApi='vncObj.readInstanceIp', error=e)
+

@@ -3,6 +3,7 @@
 #                           Public Cloud Details                                  #
 #                                                                                  #
 ####################################################################################
+logFile: '/var/log/contrail/contrail-hybrid-cloud.log'
 publicCloud:
   #Vpc Details name and awsCidrBlock
   vpc:
@@ -22,7 +23,7 @@ publicCloud:
     #Existing keypair name available in your AWS setup
     keyPairName: 'hybrid_cloud'
     #Image id
-    imageId: 'ami-b04e92d0'
+    imageId: 'ami-b04exyz'
     #Interface type or the flavor of the s3 instance
     instanceType: 't2.micro'
 ####################################################################################
@@ -32,23 +33,23 @@ publicCloud:
 ####################################################################################
 privateCloud:
   #Private Cloud credentails required for the contrail to authenticate
-  username: 'user1'
-  tenantName: 'tenant1'
-  password: 'password'
+  username: 'admin'
+  tenantName: 'admin'
+  password: 'secret123'
   domain: 'default-domain'
-  apiHost: '1.1.1.1'
+  apiHost: '192.168.100.1'
   #Network which can be reached from internet
-  publiclyRoutableNetwork: 'public'
+  publiclyRoutableNetwork: 'external'
   #List of networks and its details
   networks:
     - name: 'IPSec-Mgmt-VN'
       cidr: '192.168.5.0/24'
     - name: 'IPSec-Corpoate-VN'
       cidr: '192.168.8.0/24'
-    - name: 'public'
-      cidr: '1.1.1.2/27'
-      allocationPool: '1.1.1.10-1.1.1.100'
-      routeTarget: '64512:14000'
+    - name: 'external'
+      cidr: '1.1.1.1/28'
+      allocationPool: ['1.1.1.3-1.1.1.10','1.1.1.11-1.1.1.11']
+      routeTarget: '64512:10000'
       fipPoolName: 'FIP'
   services:
     templates:
@@ -57,7 +58,7 @@ privateCloud:
         intfMapping:
           management: 'IPSec-Mgmt-VN'
           left: 'IPSec-Corpoate-VN'
-          right: 'public'
+          right: 'external'
         serviceMode: 'in-network'
         serviceType: 'firewall'
         orderedIntf: True
@@ -71,27 +72,35 @@ privateCloud:
     - name: 'IpsecPolicy'
       serviceInstance: 'IpsecCorpInstance'
       srcNetwork: 'IPSec-Corpoate-VN'
-      destNetwork: 'public'
+      destNetwork: 'external'
+  glance:
+    - imageName: 'vsrx-d50'
+      filePath: '/root/images/vsrx-hybrid.raw'
+      public: True
+      diskFormat: raw
+      containerFormat: bare
+    - imageName: 'ubuntu-14.04'
+      filePath: '/root/images/ubuntu.img'
+      public: True
+      diskFormat: qcow2
+      containerFormat: ovf
   nova:
   #Nova Instance details
     vsrx:
       networks:
-        - name: 'IPSec-Corpoate-VN'
         - name: 'IPSec-Mgmt-VN'
-          fip: 'True'
-          fipPoolNetwork: 'public'
-        - name: 'public'
-      imageName: 'vsrx-d50-final'
-      flavorName: 'm1.medium'
+        - name: 'IPSec-Corpoate-VN'
+        - name: 'external'
+      imageName: 'vsrx-d50'
+      flavorName: 'm1.xlarge'
       instanceName: 'CorporateIpsecInstance'
-      username: 'vsrxuser'
-      password: 'password'
+      username: 'root'
+      password: 'secret123'
     ubuntu:
       networks:
         - name: 'IPSec-Corpoate-VN'
-        - name: 'public'
       imageName: 'ubuntu-14.04'
-      flavorName: 'm1.small'
-      instanceName: 'develop'
+      flavorName: 'm1.large'
+      instanceName: 'corporate-ubuntu-vm'
       username: 'ubuntu'
-      password: 'password'
+      password: 'ubuntu'

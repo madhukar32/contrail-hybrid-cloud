@@ -175,9 +175,10 @@ class privateCloud(hybridLogger):
 
 class awsCloud(hybridLogger):
 
-    def __init__(self, inputDict, customerGwIp):
+    def __init__(self, inputDict, customerGwIp, logLevel='INFO', logFile=None):
         
-        self.log = super(awsCloud,self).log(name=awsCloud.__name__)
+        self.log = super(awsCloud,self).log(name=awsCloud.__name__, level=logLevel, defaultPath=logFile)
+
         self.inputDict = inputDict
         self.vpcName = self.inputDict['vpc']['name']
         self.awsCidrBlock = self.inputDict['vpc']['cidrBlock']
@@ -323,7 +324,7 @@ if __name__ == "__main__":
 
     publicCloudDict = hybridCloudDict['publicCloud']
     privateCloudDict = hybridCloudDict['privateCloud']
-    import pdb;pdb.set_trace()
+
     try:
         private = privateCloud(privateCloudDict, logLevel=logLevel, logFile=logFile)
         updatedPrivateDict = private.setup()
@@ -331,9 +332,9 @@ if __name__ == "__main__":
         log.error(e, exc_info=True)
         sys.exit(1)
 
-    for network in updatedPrivateDict['networks']:
+    for network in updatedPrivateDict['nova']['vsrx']['networks']:
         if network['name'] == updatedPrivateDict['publiclyRoutableNetwork']:
-            custGwIp = network['ip']
+            custGwIp = network['instanceIp']
 
     try:
         public = awsCloud(publicCloudDict, custGwIp, logLevel=logLevel, logFile=logFile)
@@ -349,7 +350,7 @@ if __name__ == "__main__":
     vsrxUp = False
     for t in range(10, 3, -1):
         try:
-            vSRX = loadConfig(ip=custGwIp, user = vsrxUsername, password = vsrxPassword)
+            vSRX = loadConfig(ip='169.254.0.5', user = vsrxUsername, password = vsrxPassword)
             vsrxUp = True
         except ConnectTimeoutError:
             t = t-2
@@ -361,4 +362,3 @@ if __name__ == "__main__":
         log.info("Successfully loaded the configuration")
     else:
         log.error("vSRX failed to come up")
-
